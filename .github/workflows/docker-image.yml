@@ -1,0 +1,42 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up image ID and version
+      id: vars
+      run: |
+        echo "image_id=ghcr.io/${{ github.repository_owner }}/whispercpp-openvino" >> $GITHUB_OUTPUT
+        echo "version=$(date +%s)" >> $GITHUB_OUTPUT
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build the Docker image
+      run: |
+        docker build . --file whispercpp-openvino.Dockerfile \
+          --tag ${{ steps.vars.outputs.image_id }}:${{ steps.vars.outputs.version }} \
+          --tag ${{ steps.vars.outputs.image_id }}:latest
+
+    - name: Push the Docker image
+      run: |
+        docker push ${{ steps.vars.outputs.image_id }}:${{ steps.vars.outputs.version }}
+        docker push ${{ steps.vars.outputs.image_id }}:latest
