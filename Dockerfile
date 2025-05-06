@@ -71,49 +71,45 @@ RUN /bin/bash -c "source $INTEL_OPENVINO_DIR/setupvars.sh && \
     ls -l build/bin"
 
 
-RUN cat << 'EOF' > /entrypoint.sh
-#!/bin/bash
-
-# Save the current positional parameters
-original_params=("$@")
-
-# Function to log messages
-log() {
-    echo "[entrypoint] $@"
-}
-
-# Source the OpenVINO setup script
-source /opt/intel/openvino_${OPENVINO_VERSION}/setupvars.sh
-
-# Add root user to the group that owns renderD128
-if [ -e /dev/dri/renderD128 ]; then
-    renderD128_gid=$(stat -c "%g" /dev/dri/renderD128)
-    if ! getent group "$renderD128_gid" > /dev/null; then
-        groupadd --gid "$renderD128_gid" render
-    fi
-    usermod -a -G "$renderD128_gid" root
-    log "root user was added to render group (gid: $renderD128_gid)"
-else
-    log "Warning: /dev/dri/renderD128 not found. Skipping GPU group setup."
-fi
-
-# Add root to 'video' group if it exists
-if getent group video > /dev/null; then
-    usermod -a -G video root
-    log "root user was added to video group"
-else
-    log "Warning: 'video' group not found"
-fi
-
-# Restore the original positional parameters
-set -- "${original_params[@]}"
-
-# Debug: Print the arguments to verify
-log "Running whisper-server with args: $@"
-
-# Execute the whisper-server with the original arguments
-exec /whisper.cpp/build/bin/whisper-server "$@"
-EOF
+# Create entrypoint script
+RUN echo '#!/bin/bash\n\
+# Save the current positional parameters\n\
+original_params=("$@")\n\
+\n\
+# Function to log messages\n\
+log() {\n\
+    echo "[entrypoint] $@"\n\
+}\n\
+\n\
+# Add root user to the group that owns /dev/dri/renderD128, if it exists\n\
+if [ -e /dev/dri/renderD128 ]; then\n\
+    renderD128_gid=$(stat -c "%g" /dev/dri/renderD128)\n\
+    if ! getent group "$renderD128_gid" > /dev/null; then\n\
+        groupadd --gid "$renderD128_gid" render || log "Group already exists or failed"\n\
+    fi\n\
+    usermod -a -G "$renderD128_gid" root && log "root added to render group (gid: $renderD128_gid)"\n\
+else\n\
+    log "Warning: /dev/dri/renderD128 not found. Skipping GPU group setup."\n\
+fi\n\
+\n\
+# Add root to video group if it exists\n\
+if getent group video > /dev/null; then\n\
+    usermod -a -G video root && log "root added to video group"\n\
+else\n\
+    log "Warning: video group not found"\n\
+fi\n\
+\n\
+# Source the OpenVINO setup script\n\
+source /opt/intel/openvino_${OPENVINO_VERSION}/setupvars.sh\n\
+\n\
+# Restore the original positional parameters\n\
+set -- "${original_params[@]}"\n\
+\n\
+# Debug: Print the arguments to verify\n\
+echo "Running whisper-server with args: $@"\n\
+\n\
+# Execute the whisper-server with the original arguments\n\
+exec /whisper.cpp/build/bin/whisper-server "$@"' > /entrypoint.sh 
 
 RUN chmod +x /entrypoint.sh
 
