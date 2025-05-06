@@ -20,7 +20,7 @@ jobs:
     - name: Set up image ID and version
       id: vars
       run: |
-        echo "image_id=ghcr.io/${{ github.repository_owner }}/whispercpp-openvino" >> $GITHUB_OUTPUT
+        echo "image_id=ghcr.io/${{ github.repository_owner }}/whispercpp-openvino-gpu" >> $GITHUB_OUTPUT
         echo "version=$(date +%s)" >> $GITHUB_OUTPUT
 
     - name: Log in to GitHub Container Registry
